@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tcr_oligos"
+version = "0.1.0"
+description = "TCR analysis to generate oligos"
+requires-python = ">=3.12"
+readme = "README.md"
+authors = [{ name = "Bell Wu", email = "bellxiwu@gmail.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    "numpy>=1.26.4",
+    "pandas>=2.2.3",
+    "tqdm>=4.67.0",
+    "biopython>=1.84",
+    "ipykernel>=6.30.1",
+    "matplotlib>=3.10.6",
+    "ipywidgets>=8.1.7",
+    "scikit-learn>=1.7.2",
+    "uvicorn>=0.37.0",
+    "seaborn>=0.13.2",
+    "python-dotenv",
+    "dnachisel"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tcr_toolbox*"]
+
+[project.urls]
+TCRtoolbox = "https://github.com/schumacherlab/TCRtoolbox"
+TCRAFT = "https://github.com/birnbaumlab/TCRAFT"
