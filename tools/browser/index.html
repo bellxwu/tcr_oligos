@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pMHC SCT Builder</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --panel-2: #fbfbfc;
+    --ink: #16191d;
+    --ink-soft: #5a626d;
+    --ink-faint: #8b929c;
+    --line: #e2e5ea;
+    --accent: #1f6feb;
+    --accent-ink: #ffffff;
+    --ok: #1a7f45;
+    --ok-bg: #e8f6ed;
+    --warn: #8a5a00;
+    --warn-bg: #fdf3e0;
+    --err: #b3261e;
+    --err-bg: #fdecea;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216;
+      --panel: #171b21;
+      --panel-2: #1d222a;
+      --ink: #e8ebef;
+      --ink-soft: #a6aeb9;
+      --ink-faint: #737c88;
+      --line: #2a3139;
+      --accent: #4d8ef7;
+      --accent-ink: #0b0e12;
+      --ok: #5fd08a;
+      --ok-bg: #11291b;
+      --warn: #e0b355;
+      --warn-bg: #2a2110;
+      --err: #ff8a80;
+      --err-bg: #2d1513;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --panel: #171b21; --panel-2: #1d222a;
+    --ink: #e8ebef; --ink-soft: #a6aeb9; --ink-faint: #737c88;
+    --line: #2a3139; --accent: #4d8ef7; --accent-ink: #0b0e12;
+    --ok: #5fd08a; --ok-bg: #11291b; --warn: #e0b355; --warn-bg: #2a2110;
+    --err: #ff8a80; --err-bg: #2d1513;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 16px 80px; }
+
+  header { margin-bottom: 26px; }
+  h1 { font-size: 23px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-soft); font-size: 14px; margin: 0; }
+  .chain {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    margin-top: 10px; overflow-x: auto; white-space: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 18px;
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-faint); margin: 0 0 14px; font-weight: 600;
+  }
+
+  /* drop zone */
+  #drop {
+    border: 1.5px dashed var(--line); border-radius: var(--radius);
+    padding: 26px 18px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
+    background: var(--panel-2);
+  }
+  #drop:hover, #drop.hot { border-color: var(--accent); background: var(--panel); }
+  #drop.loaded { border-style: solid; text-align: left; }
+  #drop .big { font-size: 15px; font-weight: 550; }
+  #drop .hint { color: var(--ink-faint); font-size: 13px; margin-top: 5px; }
+  #drop .hint code { font-family: var(--mono); font-size: 12px; }
+  #file { display: none; }
+
+  .filerow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .filerow .name { font-weight: 600; }
+  .filerow .meta { color: var(--ink-soft); font-size: 13px; }
+  .peek {
+    margin-top: 12px; font-family: var(--mono); font-size: 12px;
+    color: var(--ink-soft); display: grid; gap: 2px;
+  }
+  .peek .row { display: flex; gap: 12px; }
+  .peek .row span:first-child { min-width: 170px; color: var(--ink); }
+
+  /* form grid */
+  .grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+  label { display: block; }
+  .lab { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .lab .req { color: var(--err); font-weight: 400; }
+  select, input[type="text"] {
+    width: 100%; padding: 9px 10px; font-size: 14px; color: var(--ink);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 7px; font-family: inherit;
+  }
+  input[type="text"] { font-family: var(--mono); }
+  select:focus, input:focus {
+    outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent);
+  }
+  input.bad { border-color: var(--err); }
+  .note { font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
+  .note.err { color: var(--err); }
+
+  .actions {
+    display: flex; align-items: center; gap: 14px;
+    margin-top: 20px; flex-wrap: wrap;
+  }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 7px;
+    border: 1px solid transparent; padding: 10px 18px;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost {
+    background: transparent; color: var(--ink); border-color: var(--line);
+    font-weight: 500;
+  }
+  button.ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+  /* progress */
+  #progress { display: none; }
+  #progress.on { display: block; }
+  .bar {
+    height: 6px; background: var(--line); border-radius: 99px;
+    overflow: hidden; margin: 12px 0 8px;
+  }
+  .bar > div {
+    height: 100%; width: 0; background: var(--accent);
+    border-radius: 99px; transition: width .3s ease;
+  }
+  .bar.idle > div {
+    width: 35% !important; background: linear-gradient(90deg,
+      transparent, var(--accent), transparent);
+    animation: slide 1.1s linear infinite;
+  }
+  @keyframes slide { from { margin-left: -35%; } to { margin-left: 100%; } }
+  .pstat { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .pstat .what { font-weight: 550; }
+  .pstat .when { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  /* messages */
+  .msg { border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-bottom: 14px; }
+  .msg.err { background: var(--err-bg); color: var(--err); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .msg .title { font-weight: 650; }
+  .msg pre {
+    margin: 8px 0 0; font-family: var(--mono); font-size: 11.5px;
+    white-space: pre-wrap; max-height: 220px; overflow: auto; opacity: .85;
+  }
+  details summary {
+    cursor: pointer; font-size: 13px; color: var(--ink-soft);
+    margin-top: 4px; user-select: none;
+  }
+  details[open] summary { margin-bottom: 8px; }
+
+  /* results */
+  #results { display: none; }
+  #results.on { display: block; }
+  .rhead {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .rhead .what { font-size: 14px; }
+  .rhead .what b { font-size: 16px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+  .tag {
+    font-family: var(--mono); font-size: 11.5px; padding: 2px 7px;
+    border: 1px solid var(--line); border-radius: 99px; color: var(--ink-soft);
+  }
+  .scroll {
+    overflow-x: auto; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel-2);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td {
+    text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  th {
+    position: sticky; top: 0; background: var(--panel);
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-faint); font-weight: 600;
+  }
+  tr:last-child td { border-bottom: 0; }
+  td.seq {
+    font-family: var(--mono); font-size: 12px;
+    max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+    cursor: copy;
+  }
+  td.num { font-variant-numeric: tabular-nums; }
+  .trunc { color: var(--ink-faint); font-size: 12.5px; margin-top: 10px; }
+  .copied { color: var(--ok); }
+  footer { color: var(--ink-faint); font-size: 12.5px; margin-top: 26px; }
+  footer code { font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>pMHC single-chain trimer builder</h1>
+    <p class="sub">Upload a peptide CSV, choose the construct, download sequences ready for ordering.</p>
+    <div class="chain">5&prime;addon &rarr; leader &rarr; peptide &rarr; L1 &rarr; B2M &rarr; L2 &rarr; HLA heavy chain &rarr; 3&prime;addon</div>
+  </header>
+
+  <div id="banner"></div>
+
+  <section class="panel">
+    <h2>1 &middot; Peptides</h2>
+    <div id="drop" tabindex="0" role="button" aria-label="Choose a peptide CSV">
+      <div class="big">Drop a peptide CSV here, or click to choose</div>
+      <div class="hint">First two columns are read as <code>name</code> and <code>peptide_aa</code>, whatever they are called.</div>
+    </div>
+    <input type="file" id="file" accept=".csv,text/csv">
+  </section>
+
+  <section class="panel">
+    <h2>2 &middot; Construct</h2>
+    <div class="grid">
+      <label>
+        <div class="lab">HLA heavy chain</div>
+        <select id="hla"></select>
+        <div class="note">Built into the trimer.</div>
+      </label>
+      <label>
+        <div class="lab">Leader peptide</div>
+        <select id="leader"></select>
+        <div class="note" id="leader-note">Codon optimised at the N terminus.</div>
+      </label>
+      <label>
+        <div class="lab">Destination vector</div>
+        <select id="vector"></select>
+        <div class="note">Adds that vector's Gibson homology arms.</div>
+      </label>
+      <label>
+        <div class="lab">Seed <span class="req">required</span></div>
+        <input type="text" id="seed" inputmode="numeric" autocomplete="off"
+               placeholder="e.g. 1231" aria-describedby="seed-note">
+        <div class="note" id="seed-note">Recorded in the output so this run can be rebuilt.</div>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="go" disabled>Generate constructs</button>
+      <span class="note" id="why">Choose a CSV and enter a seed.</span>
+    </div>
+  </section>
+
+  <section class="panel" id="progress">
+    <h2>Working</h2>
+    <div class="bar idle"><div id="fill"></div></div>
+    <div class="pstat">
+      <span class="what" id="pwhat">starting</span>
+      <span class="when" id="pwhen"></span>
+    </div>
+    <div id="livelog"></div>
+  </section>
+
+  <section class="panel" id="results">
+    <div class="rhead">
+      <div class="what">
+        <b id="rcount"></b> <span id="rword">constructs</span>
+        <div class="tags" id="rtags"></div>
+      </div>
+      <button id="dl">Download CSV</button>
+    </div>
+    <div id="rlog"></div>
+    <div class="scroll"><table id="rtable"><thead></thead><tbody></tbody></table></div>
+    <div class="trunc" id="rtrunc"></div>
+  </section>
+
+  <footer>
+    Sequences come from <code>tools/generate_pMHC_SCT.py</code>; reference sequences
+    from <code>tools/SCT_constants.py</code>. Click any sequence cell to copy it in full.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    banner: $("banner"), drop: $("drop"), file: $("file"),
+    hla: $("hla"), leader: $("leader"), vector: $("vector"), seed: $("seed"),
+    leaderNote: $("leader-note"), seedNote: $("seed-note"),
+    go: $("go"), why: $("why"),
+    progress: $("progress"), fill: $("fill"), bar: document.querySelector(".bar"),
+    pwhat: $("pwhat"), pwhen: $("pwhen"), livelog: $("livelog"),
+    results: $("results"), rcount: $("rcount"), rword: $("rword"),
+    rtags: $("rtags"), rlog: $("rlog"), rtable: $("rtable"),
+    rtrunc: $("rtrunc"), dl: $("dl"),
+  };
+
+  let csvText = null;      // contents of the chosen file
+  let csvName = null;
+  let options = null;      // from /api/options
+  let jobId = null;
+  let poller = null;
+  let ticker = null;
+  let startedAt = 0;
+
+  // ---- small helpers -------------------------------------------------
+  function banner(kind, title, body, pre) {
+    el.banner.innerHTML = "";
+    if (!kind) return;
+    const box = document.createElement("div");
+    box.className = "msg " + kind;
+    const head = document.createElement("div");
+    head.className = "title";
+    head.textContent = title;
+    box.appendChild(head);
+    if (body) {
+      const p = document.createElement("div");
+      p.textContent = body;
+      box.appendChild(p);
+    }
+    if (pre) {
+      const d = document.createElement("details");
+      const s = document.createElement("summary");
+      s.textContent = "Show details";
+      const block = document.createElement("pre");
+      block.textContent = pre;
+      d.appendChild(s); d.appendChild(block);
+      box.appendChild(d);
+    }
+    el.banner.appendChild(box);
+  }
+
+  function logBlock(target, text) {
+    target.innerHTML = "";
+    if (!text || !text.trim()) return;
+    const box = document.createElement("div");
+    box.className = "msg warn";
+    const d = document.createElement("details");
+    const lines = text.trim().split("\n").length;
+    const s = document.createElement("summary");
+    s.textContent = lines + (lines === 1 ? " note from the run" : " notes from the run");
+    const pre = document.createElement("pre");
+    pre.textContent = text.trim();
+    d.appendChild(s); d.appendChild(pre);
+    box.appendChild(d);
+    target.appendChild(box);
+  }
+
+  function fillSelect(node, values, { blankLabel = null, selected = null } = {}) {
+    node.innerHTML = "";
+    if (blankLabel !== null) {
+      const o = document.createElement("option");
+      o.value = ""; o.textContent = blankLabel;
+      node.appendChild(o);
+    }
+    values.forEach((v) => {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      if (v === selected) o.selected = true;
+      node.appendChild(o);
+    });
+  }
+
+  function seedProblem() {
+    const raw = el.seed.value.trim();
+    if (raw === "") return "a seed is required";
+    if (!/^\d+$/.test(raw)) return "seed must be a whole number";
+    const n = Number(raw);
+    if (n > 4294967295) return "seed must be 4294967295 or less";
+    return null;
+  }
+
+  function refresh() {
+    const problem = seedProblem();
+    const noFile = csvText === null;
+    const busy = jobId !== null;
+    el.go.disabled = noFile || problem !== null || busy || !options;
+    el.seed.classList.toggle("bad", el.seed.value.trim() !== "" && problem !== null);
+
+    let why = "";
+    if (busy) why = "generating…";
+    else if (noFile && problem) why = "Choose a CSV and enter a seed.";
+    else if (noFile) why = "Choose a peptide CSV.";
+    else if (problem) why = problem.charAt(0).toUpperCase() + problem.slice(1) + ".";
+    el.why.textContent = why;
+    el.why.className = "note" + (!noFile && problem && el.seed.value.trim() ? " err" : "");
+  }
+
+  // ---- the chosen file -----------------------------------------------
+  // Split a CSV line on commas that are not inside double quotes; only used
+  // for the on-screen peek, the real parsing happens in pandas.
+  function splitCsvLine(line) {
+    const out = [];
+    let cur = "", quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (quoted && line[i + 1] === '"') { cur += '"'; i++; }
+        else quoted = !quoted;
+      } else if (ch === "," && !quoted) { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out.map((s) => s.trim());
+  }
+
+  function showFile() {
+    const lines = csvText.split(/\r?\n/).filter((l) => l.trim() !== "");
+    const header = lines.length ? splitCsvLine(lines[0]) : [];
+    const body = lines.slice(1);
+
+    el.drop.classList.add("loaded");
+    el.drop.innerHTML = "";
+
+    const row = document.createElement("div");
+    row.className = "filerow";
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = csvName;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    const cols = header.slice(0, 2).map((c) => c || "(unnamed)").join(" · ");
+    meta.textContent = body.length + (body.length === 1 ? " row" : " rows")
+      + (cols ? " — reading " + cols : "");
+    const swap = document.createElement("span");
+    swap.className = "meta";
+    swap.style.marginLeft = "auto";
+    swap.textContent = "click to choose another";
+    row.appendChild(name); row.appendChild(meta); row.appendChild(swap);
+    el.drop.appendChild(row);
+
+    if (body.length) {
+      const peek = document.createElement("div");
+      peek.className = "peek";
+      body.slice(0, 4).forEach((line) => {
+        const cells = splitCsvLine(line);
+        const r = document.createElement("div");
+        r.className = "row";
+        const a = document.createElement("span");
+        a.textContent = cells[0] || "";
+        const b = document.createElement("span");
+        b.textContent = (cells[1] || "").toUpperCase();
+        r.appendChild(a); r.appendChild(b);
+        peek.appendChild(r);
+      });
+      if (body.length > 4) {
+        const more = document.createElement("div");
+        more.className = "row";
+        more.textContent = "… and " + (body.length - 4) + " more";
+        peek.appendChild(more);
+      }
+      el.drop.appendChild(peek);
+    }
+
+    if (header.length < 2) {
+      banner("err", "That CSV has only one column.",
+        "Two are needed: a name and a peptide amino acid sequence.");
+    } else if (!body.length) {
+      banner("err", "That CSV has a header but no rows.", null);
+    } else {
+      banner(null);
+    }
+  }
+
+  function takeFile(file) {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      banner("err", "That file is larger than 8 MB.", "Split it into smaller batches.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => banner("err", "Could not read that file.", null);
+    reader.onload = () => {
+      csvText = String(reader.result).replace(/^﻿/, "");
+      csvName = file.name;
+      showFile();
+      refresh();
+    };
+    reader.readAsText(file);
+  }
+
+  el.drop.addEventListener("click", () => el.file.click());
+  el.drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.file.click(); }
+  });
+  el.file.addEventListener("change", () => takeFile(el.file.files[0]));
+  ["dragenter", "dragover"].forEach((type) =>
+    el.drop.addEventListener(type, (e) => {
+      e.preventDefault(); el.drop.classList.add("hot");
+    }));
+  ["dragleave", "drop"].forEach((type) =>
+    el.drop.addEventListener(type, () => el.drop.classList.remove("hot")));
+  el.drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    takeFile(e.dataTransfer.files[0]);
+  });
+  el.seed.addEventListener("input", refresh);
+
+  // ---- options -------------------------------------------------------
+  function describeLeader() {
+    const seq = options.leader_sequences[el.leader.value];
+    el.leaderNote.textContent = seq
+      ? seq.length + " aa · " + seq
+      : "Codon optimised at the N terminus.";
+    el.leaderNote.style.fontFamily = seq ? "var(--mono)" : "";
+    el.leaderNote.style.fontSize = seq ? "11.5px" : "";
+  }
+
+  async function loadOptions() {
+    try {
+      const res = await fetch("/api/options");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      options = await res.json();
+    } catch (err) {
+      banner("err", "Cannot reach the local server.",
+        "Start it with: python tools/browser/serve.py — then reload this page.");
+      return;
+    }
+    fillSelect(el.hla, options.hla, { selected: options.defaults.hla });
+    fillSelect(el.leader, options.leaders, { selected: options.defaults.leader });
+    fillSelect(el.vector, options.vectors, { blankLabel: "none (no vector arms)" });
+    el.leader.addEventListener("change", describeLeader);
+    describeLeader();
+    refresh();
+  }
+
+  // ---- generate ------------------------------------------------------
+  function elapsed() {
+    const secs = (Date.now() - startedAt) / 1000;
+    if (secs < 60) return secs.toFixed(0) + "s";
+    return Math.floor(secs / 60) + "m " + String(Math.round(secs % 60)).padStart(2, "0") + "s";
+  }
+
+  function stopPolling() {
+    clearInterval(poller); clearInterval(ticker);
+    poller = ticker = null;
+    jobId = null;
+  }
+
+  async function start() {
+    const problem = seedProblem();
+    if (csvText === null || problem) { refresh(); return; }
+
+    banner(null);
+    el.results.classList.remove("on");
+    el.progress.classList.add("on");
+    el.bar.classList.add("idle");
+    el.fill.style.width = "0%";
+    el.pwhat.textContent = "starting";
+    el.pwhen.textContent = "";
+    el.livelog.innerHTML = "";
+
+    const body = {
+      csv_text: csvText,
+      seed: el.seed.value.trim(),
+      hla: el.hla.value,
+      leader: el.leader.value,
+      vector: el.vector.value || null,
+    };
+
+    let res, data;
+    try {
+      res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      data = await res.json();
+    } catch (err) {
+      el.progress.classList.remove("on");
+      banner("err", "Lost contact with the local server.", String(err));
+      refresh();
+      return;
+    }
+    if (!res.ok) {
+      el.progress.classList.remove("on");
+      banner("err", "Cannot start that run.", data.error || ("HTTP " + res.status));
+      refresh();
+      return;
+    }
+
+    jobId = data.job;
+    startedAt = Date.now();
+    if (data.busy) el.pwhat.textContent = "waiting for the run in progress to finish";
+    refresh();
+    poller = setInterval(poll, 500);
+    ticker = setInterval(() => { el.pwhen.textContent = elapsed(); }, 1000);
+    poll();
+  }
+
+  async function poll() {
+    if (!jobId) return;
+    const id = jobId;
+    let data;
+    try {
+      const res = await fetch("/api/status?job=" + encodeURIComponent(id));
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+    } catch (err) {
+      stopPolling();
+      el.progress.classList.remove("on");
+      banner("err", "Lost contact with the local server.", String(err));
+      refresh();
+      return;
+    }
+
+    logBlock(el.livelog, data.log);
+
+    if (data.state === "queued") {
+      el.pwhat.textContent = "queued behind another run";
+    } else if (data.state === "running") {
+      if (data.total > 0) {
+        el.bar.classList.remove("idle");
+        el.fill.style.width = (100 * data.done / data.total).toFixed(1) + "%";
+        const n = Math.max(0, data.total - 1);
+        const at = Math.max(0, Math.min(data.done, n));
+        el.pwhat.textContent = data.done === 0
+          ? "codon optimising the leader peptide"
+          : "codon optimising peptides — " + at + " of " + n;
+      } else {
+        el.pwhat.textContent = "reading the CSV";
+      }
+    } else if (data.state === "done") {
+      stopPolling();
+      el.bar.classList.remove("idle");
+      el.fill.style.width = "100%";
+      el.progress.classList.remove("on");
+      show(data, id);
+      refresh();
+    } else if (data.state === "error") {
+      stopPolling();
+      el.progress.classList.remove("on");
+      banner("err", "That run failed.", data.error, data.traceback);
+      refresh();
+    }
+  }
+
+  // ---- results -------------------------------------------------------
+  const SEQ_COLUMNS = new Set(["peptide_nuc", "to_order", "peptide_aa"]);
+
+  function show(data, id) {
+    const p = data.preview;
+    el.results.classList.add("on");
+    el.rcount.textContent = p.total_rows;
+    el.rword.textContent = p.total_rows === 1 ? "construct" : "constructs";
+
+    el.rtags.innerHTML = "";
+    const first = p.rows[0] || {};
+    [["HLA", el.hla.value], ["leader", el.leader.value],
+     ["vector", el.vector.value || "none"], ["seed", el.seed.value.trim()],
+     ["bp", first.to_order ? first.to_order.length : null]]
+      .forEach(([k, v]) => {
+        if (v === null || v === undefined || v === "") return;
+        const t = document.createElement("span");
+        t.className = "tag";
+        t.textContent = k + " " + v;
+        el.rtags.appendChild(t);
+      });
+
+    logBlock(el.rlog, data.log);
+
+    const thead = el.rtable.querySelector("thead");
+    const tbody = el.rtable.querySelector("tbody");
+    thead.innerHTML = ""; tbody.innerHTML = "";
+    const hrow = document.createElement("tr");
+    p.columns.forEach((c) => {
+      const th = document.createElement("th");
+      th.textContent = c;
+      hrow.appendChild(th);
+    });
+    thead.appendChild(hrow);
+
+    p.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      p.columns.forEach((c) => {
+        const td = document.createElement("td");
+        const value = row[c];
+        if (value === null || value === undefined) {
+          td.textContent = "—";
+          td.style.color = "var(--ink-faint)";
+        } else if (SEQ_COLUMNS.has(c) && String(value).length > 28) {
+          td.className = "seq";
+          td.textContent = value;
+          td.title = String(value).length + " bases — click to copy";
+          td.addEventListener("click", () => copy(td, String(value)));
+        } else if (typeof value === "number") {
+          td.className = "num";
+          td.textContent = value;
+        } else {
+          td.textContent = value;
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    el.rtrunc.textContent = p.shown_rows < p.total_rows
+      ? "Showing the first " + p.shown_rows + " of " + p.total_rows
+        + " rows. The download has all of them."
+      : "";
+
+    el.dl.onclick = () => {
+      window.location.href = "/api/result?job=" + encodeURIComponent(id);
+    };
+    el.results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  async function copy(node, text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      const area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      try { document.execCommand("copy"); } finally { area.remove(); }
+    }
+    const was = node.textContent;
+    node.classList.add("copied");
+    node.textContent = "copied " + text.length + " bases";
+    setTimeout(() => {
+      node.classList.remove("copied");
+      node.textContent = was;
+    }, 900);
+  }
+
+  el.go.addEventListener("click", start);
+  el.seed.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !el.go.disabled) start();
+  });
+
+  loadOptions();
+})();
+</script>
+</body>
+</html>

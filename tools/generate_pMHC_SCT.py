@@ -6,18 +6,15 @@ concatenates it into the full SCT construct ready for ordering:
 
     5'addon - signal peptide - peptide - L1 - B2M - L2 - HLA heavy chain - 3'addon
 
-This is the scripted form of the to_order_all cell in
-analyses/05_SCT_generation.ipynb, with B2M_nuc inserted between the two
-linkers as the chain diagram specifies (the notebook cell joined L1 and L2
-back to back and left B2M out).
+Pulls variables from SCT constants. Changing this file will change the sequences used.
+
 
 Input CSV must have a "name" column and a "peptide_aa" column:
-
     name,peptide_aa
     MART-1,AAGIGILTV
     NY-ESO-1,SLLMWITQC
 
-Example:
+Example for CLI use:
     python analyses/06_HLA_test.py \
         --input-csv all_data/peptides.csv \
         --seed 1231 \
@@ -43,7 +40,7 @@ from Bio.SeqUtils import gc_fraction
 def convert_nucleotide(
         aa_seq, seed, species="h_sapiens",
         avoid_patterns=None,
-        gc_mini=0.4, gc_maxi=0.6, gc_window=50):
+        gc_mini=0.35, gc_maxi=0.65, gc_window=50):
     """Codon-optimise an amino acid sequence into a nucleotide sequence.
 
     dnachisel draws all of its randomness from numpy's global RNG (both the
