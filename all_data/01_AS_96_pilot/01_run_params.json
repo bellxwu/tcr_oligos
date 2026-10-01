@@ -1,7 +1,7 @@
 {
   "run_ID": "01",
   "seed": 7702,
-  "n_selected": 3,
+  "n_selected": 99,
   "input_csv": "AS_Top_96_TCRs.csv",
   "python": "3.12.14",
   "pandas": "3.0.5",

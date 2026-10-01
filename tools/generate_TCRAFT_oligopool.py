@@ -27,14 +27,24 @@ from TCRAFT.Validate import validate_cdr3_oligos
 
 
 def standardize_to_sample_format(df, select=None, output_dir=None, filename="standardized_TCRs.csv"):
-    """Convert a df in AS_top_96 or positive_ctrls format into sample_df format.
+    """Convert df(s) in AS_top_96 or positive_ctrls format into sample_df format.
 
+    df: a single df, or a list/tuple of dfs which are concatenated before being
+        standardized (so select/output_dir apply to the combined result).
     select: optionally, an integer number of TCRs to randomly select from the result.
+            Empty rows dropped during standardization are subtracted from this
+            count, since select is typically derived from len() of the raw input.
     output_dir: optionally, a directory to save the standardized df to as a CSV.
                 The directory is created if it doesn't already exist.
     filename: name of the CSV file to write into output_dir (ignored if output_dir is None).
     """
-    df = df.copy()
+    if isinstance(df, (list, tuple)):
+        if len(df) == 0:
+            raise ValueError("df list is empty; pass at least one dataframe.")
+        df = pd.concat([d.copy() for d in df], ignore_index=True)
+    else:
+        df = df.copy()
+
     df.columns = df.columns.str.replace("﻿", "", regex=False).str.strip()
 
     # AS_top_96 uses short lowercase column names; rename to sample_df's convention.
@@ -56,17 +66,35 @@ def standardize_to_sample_format(df, select=None, output_dir=None, filename="sta
     # each set of duplicates into a single column, keeping the first non-null value
     # per row. Left alone, the duplicates would also make df[sample_cols] below
     # return every matching column rather than one per name.
-    # if df.columns.duplicated().any():
-    #     df = pd.concat(
-    #         [df.loc[:, df.columns == col].bfill(axis=1).iloc[:, 0].rename(col)
-    #          for col in df.columns.unique()],
-    #         axis=1,
-    #     )
+    if df.columns.duplicated().any():
+        df = pd.concat(
+            [df.loc[:, df.columns == col].bfill(axis=1).iloc[:, 0].rename(col)
+             for col in df.columns.unique()],
+            axis=1,
+        )
 
     sample_cols = ["Name", "V_alpha", "V_beta", "CDR3_alpha", "CDR3_beta", "J_alpha", "J_beta"]
+
+    # Some source CSVs carry blank trailing rows (AS_TCRs_All_TCRs.csv has 489),
+    # which read_csv turns into all-NA rows. Drop them, report the count, and keep
+    # it so select can be corrected below.
+    n_before = len(df)
     df = df[sample_cols].dropna(how="all").reset_index(drop=True)
+    n_dropped = n_before - len(df)
+    if n_dropped:
+        print(f"NA detected: dropped {n_dropped} empty row(s) of {n_before}; {len(df)} TCRs remain.")
 
     if select is not None:
+        if n_dropped:
+            select -= n_dropped
+            print(f"select adjusted by -{n_dropped} to {select}.")
+        if select <= 0:
+            raise ValueError(
+                f"select is {select} after subtracting {n_dropped} dropped empty row(s); "
+                "pass a select count based on the raw row count, or None to keep all rows."
+            )
+        if select > len(df):
+            raise ValueError(f"select={select} exceeds the {len(df)} TCRs available.")
         df = df.sample(n=select).reset_index(drop=True)
 
     if output_dir is not None:
