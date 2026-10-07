@@ -200,8 +200,8 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
     """
     addons = require_vector(vector)
 
-    if hla not in HLA_nuc:
-        raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_nuc)}")
+    if hla not in HLA_aa:
+        raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_aa)}")
     
     # join the sequences together
     return "".join([
@@ -211,7 +211,7 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
         linker_nuc["L1"],
         B2M_nuc,
         linker_nuc["L2"],
-        HLA_nuc[hla],
+        HLA_aa[hla],
         addons["3_addon"],
     ])
 
@@ -229,7 +229,7 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
         input_csv: path to the peptide CSV, or a dataframe (see load_peptides).
         seed: required integer seed for the codon optimisation.
         vector: required destination vector whose homology arms are added.
-        hla: key into HLA_nuc naming the heavy chain to use.
+        hla: key into HLA_aa naming the heavy chain to use.
         leader: key into leader_peptide_aa naming the signal peptide.
         output_csv: optionally, a path to write the result to.
 
@@ -243,8 +243,8 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
         raise KeyError(
             f"unknown leader {leader!r}; available: {sorted(leader_peptide_aa)}"
         )
-    if hla not in HLA_nuc:
-        raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_nuc)}")
+    if hla not in HLA_aa:
+        raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_aa)}")
     # load peptide csv
     peptides = load_peptides(input_csv)
     if peptides.empty:
@@ -297,7 +297,7 @@ def parse_args(argv=None):
                         help="Seed for the codon optimisation; record it to reproduce the run.")
     parser.add_argument("--vector", required=True, choices=sorted(destination_vector_nuc),
                         help="Destination vector whose Gibson arms flank the construct.")
-    parser.add_argument("--hla", default="HLA-A2", choices=sorted(HLA_nuc),
+    parser.add_argument("--hla", default="HLA-A2", choices=sorted(HLA_aa),
                         help="HLA heavy chain to build into the trimer.")
     parser.add_argument("--leader", default="B2M", choices=sorted(leader_peptide_aa),
                         help="Signal peptide to put at the N terminus.")
