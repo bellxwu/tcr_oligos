@@ -31,7 +31,7 @@ from pathlib import Path
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import ALL_DATA_DIR
-from SCT_constants import (B2M_nuc, HLA_nuc, destination_vector_nuc,
+from SCT_constants import (B2M_nuc, HLA_aa, destination_vector_nuc,
                            leader_peptide_aa, linker_nuc)
 import contextlib
 import io
@@ -68,8 +68,8 @@ def convert_nucleotide(
         aa_seq, seed, species="h_sapiens",
         avoid_patterns=None,
         gc_mini=0.35, gc_maxi=0.65, gc_window=50):
-    """Codon-optimise an amino acid sequence into a nucleotide sequence.
-
+    """
+    Codon-optimise an amino acid sequence into a nucleotide sequence.
     dnachisel draws all of its randomness from numpy's global RNG (both the
     randomised back-translation and the optimisation itself), so seeding that
     RNG is what makes a run reproducible. The seed is therefore required: no
@@ -193,7 +193,7 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
         signal_peptide_nuc: codon optimised nucleotide sequence for the leader.
         vector: required key into destination_vector_nuc; its homology arms
                 flank the construct.
-        hla: key into HLA_nuc naming the heavy chain to use.
+        hla: key into HLA_aa naming the heavy chain to use.
 
     return:
         The assembled nucleotide sequence as a string.
@@ -202,7 +202,8 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
 
     if hla not in HLA_nuc:
         raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_nuc)}")
-
+    
+    # join the sequences together
     return "".join([
         addons["5_addon"],
         signal_peptide_nuc,
@@ -244,28 +245,29 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
         )
     if hla not in HLA_nuc:
         raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_nuc)}")
-
-    peptides = sct.load_peptides(input_csv)
+    # load peptide csv
+    peptides = load_peptides(input_csv)
     if peptides.empty:
         raise ValueError(f"no peptide sequences found in {input_csv}")
-
-    signal_peptide_nuc = sct.convert_nucleotide(leader_peptide_aa[leader], seed=seed)
-
+    # convert the amino acid of the leader peptide into nucleotide
+    signal_peptide_nuc = convert_nucleotide(leader_peptide_aa[leader], seed=seed)
+    
+    # conver peptides nucleotides into nucleotides
     peptide_nucs = []
     for peptide_aa in peptides["peptide_aa"]:
         # use entire peptide sequence as window
         gc_window = len(peptide_aa) * 3
         peptide_nucs.append(
-            sct.convert_nucleotide(peptide_aa, seed=seed, gc_window=gc_window)
+            convert_nucleotide(peptide_aa, seed=seed, gc_window=gc_window)
         )
-
+    # build the sct by concatating the sequence length together
     peptides["peptide_nuc"] = peptide_nucs
     peptides["to_order"] = [
         build_sct(peptide_nuc, signal_peptide_nuc, vector, hla=hla)
         for peptide_nuc in peptides["peptide_nuc"]
     ]
 
-    # add metadata
+    # add metadata columns
     peptides["hla"] = hla
     peptides["leader"] = leader
     peptides["vector"] = vector
