@@ -65,9 +65,13 @@ def require_vector(vector):
 
 
 def convert_nucleotide(
-        aa_seq, seed, species="h_sapiens",
+        aa_seq, 
+        seed, 
+        species="h_sapiens",
         avoid_patterns=None,
-        gc_mini=0.35, gc_maxi=0.65, gc_window=50):
+        gc_mini=0.35, 
+        gc_maxi=0.65, 
+        gc_window=50):
     """
     Codon-optimise an amino acid sequence into a nucleotide sequence.
     dnachisel draws all of its randomness from numpy's global RNG (both the
@@ -114,7 +118,8 @@ def convert_nucleotide(
         sequence=reverse_translate(aa_seq, randomize_codons=True),
         constraints=[EnforceTranslation(),
                      *[AvoidPattern(pattern) for pattern in avoid_patterns],
-                     EnforceGCContent(mini=gc_mini, maxi=gc_maxi,
+                     EnforceGCContent(mini=gc_mini, 
+                                      maxi=gc_maxi,
                                       window=gc_window)],
         objectives=[CodonOptimize(species=species)],
         logger=None,
@@ -181,7 +186,7 @@ def load_peptides(input_csv):
     return peptides.reset_index(drop=True)
 
 
-def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
+def build_sct(peptide_nuc, signal_peptide_nuc, vector, HLA_peptide_nuc):
     """
     Join the SCT components into a single nucleotide sequence.
 
@@ -199,9 +204,6 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
         The assembled nucleotide sequence as a string.
     """
     addons = require_vector(vector)
-
-    if hla not in HLA_aa:
-        raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_aa)}")
     
     # join the sequences together
     return "".join([
@@ -211,7 +213,7 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, hla="HLA-A2"):
         linker_nuc["L1"],
         B2M_nuc,
         linker_nuc["L2"],
-        HLA_aa[hla],
+        HLA_peptide_nuc,
         addons["3_addon"],
     ])
 
@@ -238,6 +240,8 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
     """
     # all three are dictionary lookups, so they go before the slow part: a bad
     # vector or leader should not cost a full codon optimisation to discover
+    
+    # enforce known sequences only
     require_vector(vector)
     if leader not in leader_peptide_aa:
         raise KeyError(
@@ -245,6 +249,7 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
         )
     if hla not in HLA_aa:
         raise KeyError(f"unknown HLA {hla!r}; available: {sorted(HLA_aa)}")
+    
     # load peptide csv
     peptides = load_peptides(input_csv)
     if peptides.empty:
@@ -252,24 +257,34 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
     # convert the amino acid of the leader peptide into nucleotide
     signal_peptide_nuc = convert_nucleotide(leader_peptide_aa[leader], seed=seed)
     
+    # convert amino acid sequence of HLA heavy chain into nucleotide
+    HLA_peptide_nuc = convert_nucleotide(HLA_aa[hla], seed=seed)
+    
     # conver peptides nucleotides into nucleotides
     peptide_nucs = []
     for peptide_aa in peptides["peptide_aa"]:
         # use entire peptide sequence as window
         gc_window = len(peptide_aa) * 3
         peptide_nucs.append(
-            convert_nucleotide(peptide_aa, seed=seed, gc_window=gc_window)
+            convert_nucleotide(peptide_aa, 
+                               seed=seed, 
+                               gc_window=gc_window)
         )
     # build the sct by concatating the sequence length together
     peptides["peptide_nuc"] = peptide_nucs
     peptides["to_order"] = [
-        build_sct(peptide_nuc, signal_peptide_nuc, vector, hla=hla)
+        build_sct(peptide_nuc, 
+                  signal_peptide_nuc, 
+                  vector, 
+                  HLA_peptide_nuc)
         for peptide_nuc in peptides["peptide_nuc"]
     ]
 
     # add metadata columns
     peptides["hla"] = hla
+    peptides["hla_sequence"] = HLA_peptide_nuc
     peptides["leader"] = leader
+    peptides["leader_sequence"] = signal_peptide_nuc
     peptides["vector"] = vector
     peptides["seed"] = seed
 
