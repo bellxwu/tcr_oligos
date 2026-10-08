@@ -9,16 +9,21 @@ Nucleotide sequences are stored lowercase, amino acid sequences uppercase,
 matching how they were recorded in the notebook.
 """
 
+# ------- ALL CONSTANTS -------
 # Flexible glycine-serine linkers joining the SCT components.
 # L1 joins peptide to B2M, L2 joins B2M to the HLA heavy chain.
-linker_nuc = {
-    "L1": "ggtggaggaggttctggaggtggtggtagtggtggtggtggttcc",
-    "L2": "ggtggtggtggtagtggtggtggtggttcaggtggtggtggttccggtggtggtggttcc",
+linker_aa = {
+    'L1': "GGGGSGGGGSGGGGS",
+    'L2': "GGGGSGGGGSGGGGSGGGGS"
 }
 
 # Beta-2 microglobulin, mature chain (leader removed).
-B2M_nuc = "atacaaagaactccaaagatccaagtttacagtagacatcctgctgaaaacggtaaatctaatttcttgaactgttacgtctccggtttccacccaagtgatatagaagttgacttgttgaaaaatggtgaaagaatcgaaaaggttgaacattcagatttgtctttttctaaggactggtccttctatttgttgtactacacagaattcactccaactgaaaaggatgaatacgcttgcagagttaatcatgtaaccttgtctcaacctaaaatcgttaagtgggatagagacatg"
+B2M_aa = "IQRTPKIQVYSRHPAENGKSNFLNCYVSGFHPSDIEVDLLKNGERIEKVEHSDLSFSKDWSFYLLYYTEFTPTEKDEYACRVNHVTLSQPKIVKWDRDM"
 
+# Kozak sequence to paste between addon and SP to ensure efficient translation
+kozak_seq = "gccacc"
+
+# ------- VECTORS -------
 # Homology arms for Gibson assembly into each destination vector.
 destination_vector_nuc = {
     "pHIV-EGFP": {
@@ -31,6 +36,7 @@ destination_vector_nuc = {
     },
 }
 
+# ------- SIGNAL PEPTIDES -------
 # Leader (signal) peptides, as amino acids: these are codon optimised at run
 # time rather than stored as nucleotides.
 leader_peptide_aa = {
@@ -38,6 +44,7 @@ leader_peptide_aa = {
     "HGH": "MATGSRTSLLLAFGLLCLPWLQEGSA",
 }
 
+# ------- HLA SEQUECES -------
 # HLA heavy chains (alpha1-alpha3, no leader, no transmembrane domain) nucleotide sequence.
 HLA_nuc = {
     "HLA-A2": "catagtatgagatatttctttacttctgtttcaagaccaggtagaggtgaacctagattcatcgcagtcggttacgttgatgacacacaatttgtaagattcgattccgacgctgcaagtcaaagaatggaaccaagagcaccttggattgaacaagaaggtccagaatattgggatggtgaaactagaaaagttaaggcccattctcaaactcacagagtagatttgggtacattaagaggtgcttataatcaatctgaagcaggttcacatacagtacaaagaatgtacggttgtgatgtcggttcagactggagatttttgagaggttatcaccaatatgcttacgatggtaaagactacattgcattgaaggaagatttgagatcctggaccgccgctgacatggcagcccaaactacaaaacataagtgggaagctgcacacgtagcagaacaattgagagcctatttggaaggtacatgtgtcgaatggttgagaagatacttagaaaacggtaaagaaacattgcaaagaaccgatgctccaaagactcatatgacacatcacgccgttagtgatcacgaagctactttgagatgctgggcattatctttttaccctgccgaaatcacattgacctggcaaagagatggtgaagaccaaacccaagatactgaattagttgaaaccagaccagcaggtgacggtactttccaaaaatgggccgctgttgtagtcccttcaggtcaagaacaaagatacacatgccatgtccaacacgaaggtttaccaaagccattgacattgagatgggaaccatcc",
@@ -45,10 +52,10 @@ HLA_nuc = {
 
 # HLA heavy chains (alpha1-alpha3, no leader, with transmembrane domain) amino acid sequence
 HLA_aa = {
-    "HLA-A201_BM": "HSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWDGETRKVKAHSQTHRVDLGTLRGAYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQLRAYLEGTCVEWLRRYLENGKETLQRTDAPKTHMTHHAVSDHEATLRCWALSFYPAEITLTWQRDGEDQTQDTELVETRPAGDGTFQKWAAVVVPSGQEQRYTCHVQHEGLPKPLTLRWEPSSQPTIPIVGIIAGLVLFGAVITGAVVAAVMWRRKSS",
-    "HLA-A201_RS": "GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWDGETRKVKAHSQTHRVDLGTLRGAYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQLRAYLEGTCVEWLRRYLENGKETLQRTDAPKTHMTHHAVSDHEATLRCWALSFYPAEITLTWQRDGEDQTQDTELVETRPAGDGTFQKWAAVVVPSGQEQRYTCHVQHEGLPKPLTLRWEPSSQPTIPIVGIIAGLVLFGAVITGAVVAAVMWRRKSS",
+    "HLA-A201_BM": "HSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWDGETRKVKAHSQTHRVDLGTLRGAYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQLRAYLEGTCVEWLRRYLENGKETLQRTDAPKTHMTHHAVSDHEATLRCWALSFYPAEITLTWQRDGEDQTQDTELVETRPAGDGTFQKWAAVVVPSGQEQRYTCHVQHEGLPKPLTLRWEPSSQPTIPIVGIIAGLVLFGAVITGAVVAAVMWRRKSS*",
+    "HLA-A201_RS": "GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWDGETRKVKAHSQTHRVDLGTLRGAYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQLRAYLEGTCVEWLRRYLENGKETLQRTDAPKTHMTHHAVSDHEATLRCWALSFYPAEITLTWQRDGEDQTQDTELVETRPAGDGTFQKWAAVVVPSGQEQRYTCHVQHEGLPKPLTLRWEPSSQPTIPIVGIIAGLVLFGAVITGAVVAAVMWRRKSS*",
 }
 
 # Order the SCT components are joined in:
 # signal peptide - peptide - L1 - B2M - L2 - HLA heavy chain
-SCT_CHAIN_ORDER = ("5_addon", "SP", "peptide", "L1", "B2M", "L2", "HLA", "3_addon")
+SCT_CHAIN_ORDER = ("5_addon", "kozak_seq", "SP", "peptide", "L1", "B2M", "L2", "HLA", "3_addon")

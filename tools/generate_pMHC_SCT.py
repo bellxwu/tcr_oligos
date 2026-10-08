@@ -31,8 +31,8 @@ from pathlib import Path
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import ALL_DATA_DIR
-from SCT_constants import (B2M_nuc, HLA_aa, destination_vector_nuc,
-                           leader_peptide_aa, linker_nuc)
+from SCT_constants import (B2M_aa, HLA_aa, destination_vector_nuc,
+                           leader_peptide_aa, linker_aa, kozak_seq)
 import contextlib
 import io
 from Bio.SeqUtils import gc_fraction
@@ -186,7 +186,8 @@ def load_peptides(input_csv):
     return peptides.reset_index(drop=True)
 
 
-def build_sct(peptide_nuc, signal_peptide_nuc, vector, HLA_peptide_nuc):
+def build_sct(signal_peptide_nuc, peptide_nuc, L1_nuc, 
+              B2M_nuc, L2_nuc, HLA_peptide_nuc, vector):
     """
     Join the SCT components into a single nucleotide sequence.
 
@@ -208,11 +209,12 @@ def build_sct(peptide_nuc, signal_peptide_nuc, vector, HLA_peptide_nuc):
     # join the sequences together
     return "".join([
         addons["5_addon"],
+        kozak_seq,
         signal_peptide_nuc,
         peptide_nuc,
-        linker_nuc["L1"],
+        L1_nuc,
         B2M_nuc,
-        linker_nuc["L2"],
+        L2_nuc,
         HLA_peptide_nuc,
         addons["3_addon"],
     ])
@@ -259,24 +261,37 @@ def generate_sct_constructs(input_csv, seed, vector, hla="HLA-A2",
     
     # convert amino acid sequence of HLA heavy chain into nucleotide
     HLA_peptide_nuc = convert_nucleotide(HLA_aa[hla], seed=seed)
+
+    # convert B2M amino acid sequence into nucleotide
+    B2M_nuc = convert_nucleotide(B2M_aa, seed=seed)
+
+    # convert linkers to nucleotide sequence
+    L1_nuc = convert_nucleotide(linker_aa["L1"], seed=seed)
+    L2_nuc = convert_nucleotide(linker_aa["L2"], seed=seed)
     
-    # conver peptides nucleotides into nucleotides
+    # convert peptides nucleotides into nucleotides
     peptide_nucs = []
     for peptide_aa in peptides["peptide_aa"]:
         # use entire peptide sequence as window
         gc_window = len(peptide_aa) * 3
         peptide_nucs.append(
-            convert_nucleotide(peptide_aa, 
-                               seed=seed, 
-                               gc_window=gc_window)
+            convert_nucleotide(
+                peptide_aa,
+                seed=seed, 
+                gc_window=gc_window)
         )
     # build the sct by concatating the sequence length together
     peptides["peptide_nuc"] = peptide_nucs
     peptides["to_order"] = [
-        build_sct(peptide_nuc, 
-                  signal_peptide_nuc, 
-                  vector, 
-                  HLA_peptide_nuc)
+        build_sct(
+            signal_peptide_nuc=signal_peptide_nuc,
+            peptide_nuc=peptide_nuc,
+            L1_nuc=L1_nuc, 
+            B2M_nuc=B2M_nuc,
+            L2_nuc=L2_nuc,
+            HLA_peptide_nuc=HLA_peptide_nuc,
+            vector=vector
+            )
         for peptide_nuc in peptides["peptide_nuc"]
     ]
 
